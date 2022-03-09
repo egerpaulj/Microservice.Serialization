@@ -26,6 +26,6 @@ namespace Microservice.Serialization
 
     public class EmptyJsonConverterProvider : IJsonConverterProvider
     {
-        JsonConverter[] GetJsonConverters() => null;
+        public JsonConverter[] GetJsonConverters() => null;
     }
 }
