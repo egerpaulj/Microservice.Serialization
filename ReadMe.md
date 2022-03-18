@@ -1,8 +1,10 @@
-# Microservice.Serialization 
+# Microservice.Serialization
 
-.NET library that provides a common interface for Serialization.
+A .NET library which provides a generic JSON converter interface-
 
-**JsonConverter** allows defining how to Serialize/Deserialize objects. Complex composite types, with abstract classes can be Serialized/Deserialized by implementing the abstract **JsonConverter**
+A custom **IJsonConverterProvider** can be used to provide custom serialization/deserialization logic to Newtonsoft; **only if needed** (e.g. if abstract base classes are part of a composite class structure).
+
+This is done by implementing one or several **JsonConverter**s
 
 ```
 public interface IJsonConverterProvider
@@ -11,18 +13,70 @@ public interface IJsonConverterProvider
 }
 ```
 
-Additionally, for plain objects an empty provider is available for dependency injection.
+## Interface Usage
+
+Implement the interface **IJsonConverterProvider** and provide the custom converters.
+
+E.g. a custom **BaseClassConverter**
 
 ```
-public class EmptyJsonConverterProvider : IJsonConverterProvider
+public class JsonConverterProvider : IJsonConverterProvider
 {
-    JsonConverter[] GetJsonConverters() => null;
+    private readonly JsonConverter[] _converters = new []{new BaseClassConverter()};
+    public JsonConverter[] GetJsonConverters() => _converters;
 }
 ```
 
-## Next steps
-- Move all serialization logic to a generic library
-- Provide an example implementation of JsonConverter
+E.g. **BaseClassConverter** instructs JSON how to Deserilize a **BusinessObjectAbstractClass** and Concrete implementations **BusinessObjectConcreteA** and **BusinessObjectConcreteB**
+
+Note: in the example below, each business object's enum **DocPartType** is used determine the type of deserialization necessary
+
+```
+public class BaseClassConverter : Newtonsoft.Json.JsonConverter
+{
+    public override bool CanConvert(Type objectType)
+    {
+        return (objectType == typeof(BusinessObjectAbstractClass));
+    }
+
+    public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+    {
+        JObject jo = JObject.Load(reader);
+        var docPartType = jo["DocPartType"] ?? jo["docPartType"];
+        var docTypeArray = docPartType.Value<object>() as JArray;
+        var docType = (BusinessObjectType) docTypeArray.First.Value<int>();
+        
+        switch (docType)
+        {
+            case BusinessObjectEnum.ConcreteA:
+                return JsonConvert.DeserializeObject<BusinessObjectConcreteA>(jo.ToString(), this);
+            case BusinessObjectEnum.ConcreteB:
+                return JsonConvert.DeserializeObject<BusinessObjectConcreteB>(jo.ToString(), this);
+            default:
+                throw new Exception("BusinessObjectAbstraction Deserialization error");
+        }
+        throw new NotImplementedException();
+    }
+
+    public override bool CanWrite
+    {
+        get { return false; }
+    }
+
+    public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+    {
+        throw new NotImplementedException(); // won't be called because CanWrite returnsfalse                                                                                                                    
+    }
+}
+```
+
+### Extension Methods
+
+The Extension methods of **IJsonConverterProvider** provides 
+- string Serialize(object o)
+- T Deserialize<T>(string valueStr)
+
+**Note:** the extension methods will ensure that JsonConverters are used to Serialize/Deserialize.
 
 ## License
 
