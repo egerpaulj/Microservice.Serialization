@@ -50,7 +50,7 @@ namespace Microservice.Serialization
 
             var type = typeof(T);
 
-            if (type.IsValueType)
+            if (type.IsValueType || type == typeof(string))
             {
                 if (type == typeof(string) || type == typeof(String))
                     return valueStr;
